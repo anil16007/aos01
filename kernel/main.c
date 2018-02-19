@@ -48,7 +48,10 @@ static void imp_store_idt(struct idt_desc *dtr)
 static unsigned long _read_idt_entry(struct idt_entry *e)
 {
 	/* NOT_IMPLEMENTED */
-	return 0;
+	//return 0;
+	unsigned long higher = (((unsigned long)e->higher16) << 16) & 	0xFFFF0000UL;
+	unsigned long lower = ((unsigned long)e->lower16) & 0x0000FFFFUL;	
+	return higher | lower;
 }
 
 /* Sets the routine address to addr in an idt entry
@@ -56,20 +59,30 @@ static unsigned long _read_idt_entry(struct idt_entry *e)
 static void _write_idt_entry(struct idt_entry *e, unsigned long addr)
 {
 	/* NOT_IMPLEMENTED */
+       e->higher16 = (unsigned short)((addr>>16) & 0x0000FFFFul);
+       e->lower16 = (unsigned short)(addr & 0x0000FFFFul);
 }
 
 static void stop_tracking_divbyzero(void)
 {
+	struct idt_entry * e;
+        struct idt_desc dtr;
 	/* stop tracking divbyzero if enabled */
 	if (orig_divbyzero != 0)
 	{
-		/* NOT_IMPLEMENTED */
+		e = ((struct idt_entry *)dtr.address);
+		imp_store_idt(&dtr);
+		_write_idt_entry(e,orig_divbyzero);
+                /* NOT_IMPLEMENTED */
 		orig_divbyzero = 0;
 	}
 }
 
 static void start_tracking_divbyzero(void)
 {
+	
+	struct idt_entry * e;
+	struct idt_desc dtr;
 	/* start tracking divbyzero if not enabled */
 	if (orig_divbyzero == 0)
 	{
@@ -77,6 +90,10 @@ static void start_tracking_divbyzero(void)
 		/* Overwrite divbyzero exception handler with
 		 * __wrapper_divbyzero (defined in wrapper.S)
 		 */
+	imp_store_idt(&dtr);
+	e = ((struct idt_entry *)dtr.address);
+	orig_divbyzero = _read_idt_entry(e);                
+	_write_idt_entry(e,(unsigned long)__wrapper_divbyzero);
 	}
 }
 
